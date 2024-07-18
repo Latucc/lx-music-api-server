@@ -13,13 +13,15 @@ import time
 import ujson as json
 import modules
 from .utils import createMD5 as hashMd5
-from . import config
+from . import config, log
 from aiohttp.web import Response, Request
 
-PACKAGE = config.read_config("module.gcsp.package_md5") # pkg md5
-SALT_1 = config.read_config("module.gcsp.salt_1") # salt 1
-SALT_2 = config.read_config("module.gcsp.salt_2") # salt 2
-NEED_VERIFY = config.read_config("module.gcsp.enable_verify") # need verify
+gclog = log.log("gcsp")
+
+PACKAGE = config.read_config("module.gcsp.package_md5")  # pkg md5
+SALT_1 = config.read_config("module.gcsp.salt_1")  # salt 1
+SALT_2 = config.read_config("module.gcsp.salt_2")  # salt 2
+NEED_VERIFY = config.read_config("module.gcsp.enable_verify")  # need verify
 
 qm = {
     'mp3': '128k',
@@ -49,7 +51,10 @@ def verify(data):
     if (not NEED_VERIFY):
         return "success"
     sign_1 = hashMd5(PACKAGE + data["time"] + SALT_2)
-    sign_2 = hashMd5((json.dumps(data["text_1"]) + json.dumps(data["text_2"]) + sign_1 + data["time"] + SALT_1).replace("\\", "").replace("}\"", "}").replace("\"{", "{"))
+    sign_2 = hashMd5(
+        (json.dumps(data["text_1"]) + json.dumps(data["text_2"]) + sign_1 + data["time"] + SALT_1).replace("\\",
+                                                                                                           "").replace(
+            "}\"", "}").replace("\"{", "{"))
 
     if (data["sign_1"] != sign_1 or data["sign_2"] != sign_2):
         return "sign"
@@ -57,37 +62,58 @@ def verify(data):
         return "time"
     return "success"
 
+
 async def handleGcspBody(body):
     data = decode(body)
+    gclog.info(data)
     result = verify(data)
     if (result != "success"):
-        return zlib.compress(json.dumps({"code": "403", "error_msg": internal_trans[result], "data": None}, ensure_ascii = False).encode("utf-8"))
+        return zlib.compress(
+            json.dumps({"code": "403", "error_msg": internal_trans[result], "data": None}, ensure_ascii=False).encode(
+                "utf-8"))
 
     data["te"] = json.loads(data["text_1"])
 
     body = await modules.url(pm[data["te"]["platform"]], data["te"]["t1"], qm[data["te"]["t2"]])
 
     if (body["code"] == 0):
-        return zlib.compress(json.dumps({"code": "200", "error_msg": "success", "data": body["data"] if (pm[data["te"]["platform"]] != "kw") else {"bitrate": "123", "url": body["data"]}}, ensure_ascii = False).encode("utf-8"))
+        return zlib.compress(json.dumps({"code": "200", "error_msg": "success", "data": body["data"] if (pm[data["te"]["platform"]] != "kw") else {"bitrate": "1", "url": body["data"]}}, ensure_ascii = False).encode("utf-8"))
+        # if (pm[data["te"]["platform"]] == "kw"):
+        #     thedata = {
+        #         "bitrate": "2000",
+        #         "url": body["data"]
+        #     }
+        # else:
+        #     thedata = body["data"]
+        # rs={
+        #     "code": "200",
+        #     "error_msg": "success",
+        #     "data": thedata
+        # }
+        # gclog.info(rs)
+        # return rs
     else:
-        return zlib.compress(json.dumps({"code": "403", "error_msg": "内部系统错误，请稍后再试", "data": None}, ensure_ascii = False).encode("utf-8"))
+        return zlib.compress(json.dumps({"code": "403", "error_msg": "内部系统错误，请稍后再试", "data": None},
+                                        ensure_ascii=False).encode("utf-8"))
+
 
 async def handle_request(request: Request):
+
     if (request.method == "POST"):
         content_size = request.content_length
-        if (content_size > 5 * 1024): # 5kb
+        if (content_size > 5 * 1024):  # 5kb
             return Response(
-                body = "Request Entity Too Large",
-                status = 413
+                body="Request Entity Too Large",
+                status=413
             )
         body = await request.read()
         return Response(
-            body = await handleGcspBody(body),
-            content_type = "application/octet-stream",
-            status = 200
+            body=await handleGcspBody(body),
+            content_type="application/octet-stream",
+            status=200
         )
     else:
         return Response(
-            body = "Method Not Allowed",
-            status = 405
+            body="Method Not Allowed",
+            status=405
         )

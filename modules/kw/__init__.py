@@ -72,11 +72,50 @@ async def url(songId, quality):
         des_info = config.read_config('module.kw.des')
         params = des_info['params'].format(
             songId = songId,
-            map_quality = tools['qualityMap'][quality],
-            ext = tools['extMap'][quality],
-            raw_quality = quality,
+            # map_quality = tools['qualityMap'][quality],
+            # ext = tools['extMap'][quality],
+            # raw_quality = quality,
         )
         target_url = f'https://{des_info["host"]}/{des_info["path"]}?f={des_info["f"]}&' + ('q=' + base64_encrypt(params) if (des_info["need_encrypt"]) else params)
+        req = await Httpx.AsyncRequest(target_url, {
+            'method': 'GET',
+            'headers': des_info['headers']
+        })
+        url = ''
+        bitrate = 1
+        if (des_info["response_type"] == 'json'):
+            url = req.json()
+            for p in des_info['url_json_path'].split('.'):
+                url = url.get(p)
+                if (url == None):
+                    raise FailedException('failed')
+            bitrate = req.json()
+            for p in des_info['bitrate_json_path'].split('.'):
+                bitrate = bitrate.get(p)
+                if (bitrate == None):
+                    raise FailedException('failed')
+        elif (des_info['response_type'] == 'text'):
+            body = req.text
+            for l in body.split('\n'):
+                l = l.strip()
+                if (l.startswith('url=')):
+                    url = l.split('=')[1]
+                elif (l.startswith('bitrate=')):
+                    bitrate = int(l.split('=')[1])
+        else:
+            raise FailedException('配置文件参数response_type填写错误或不支持')
+        bitrate = int(bitrate)
+        if (url == '' or bitrate == 1):
+            raise FailedException('failed')
+        if (not url.startswith('http')):
+            raise FailedException('failed')
+        return {
+            'url': url.split('?')[0],
+            'quality': tools['qualityMapReverse'][bitrate]
+        }
+    elif (proto == 'my'):
+        des_info = config.read_config('module.kw.des')
+        target_url = f'https://mobi.kuwo.cn/mobi.s?f=web&prod=kwplayer_ar_10.3.3.0&type=convert_url&rid={songId}&br={tools['qualityMap'][quality]}'
         req = await Httpx.AsyncRequest(target_url, {
             'method': 'GET',
             'headers': des_info['headers']

@@ -137,8 +137,8 @@ module:
         enable: false
         interval: 86400
 
-  kw: # 酷我音乐相关配置，proto支持值：['bd-api', 'kuwodes']
-    proto: bd-api
+  kw: # 酷我音乐相关配置，proto支持值：['bd-api', 'kuwodes','my']
+    proto: my
     user:
       uid: "0"
       token: ""
@@ -150,11 +150,12 @@ module:
       # {map_quality}为map后的歌曲音质（酷我规范）
       # {raw_quality}为请求时的歌曲音质（LX规范）
       # {ext}为歌曲文件扩展名
-      params: type=convert_url_with_sign&rid={songId}&quality={map_quality}&ext={ext}
+      # params: type=convert_url_with_sign&rid={songId}&quality={map_quality}&ext={ext}
+      params: user=0&android_id=0&prod=kwplayerhd_ar_4.3.0.8&corp=kuwo&vipver=4.3.0.8&source=kwplayerhd_ar_4.3.0.8_tianbao_T1A_qirui.apk&p2p=1&notrace=0&type=convert_url2&br=2000&format=flac|mp3|aac&rid={songId}&priority=bitrate&loginUid=0&network=WIFI&loginSid=0&mode=down'
       host: nmobi.kuwo.cn
       path: mobi.s
       # 这里是reponse_type的所有支持值，当设置为json时会使用到下面的两个值来获取url/bitrate，如果为text，则为传统的逐行解析方式
-      response_type: json
+      response_type: text
       url_json_path: data.url
       bitrate_json_path: data.bitrate
       headers:
@@ -162,7 +163,7 @@ module:
 
   gcsp: # 歌词适配后端配置
     # 请注意只允许私用，不要给原作者带来麻烦，谢谢
-    enable: false # 是否启用歌词适配后端
+    enable: true # 是否启用歌词适配后端
     path: /client/cgi-bin/api.fcg # 后端接口地址
     enable_verify: false # 是否启用后端验证
     package_md5: "" # apk包的md5值，用于验证
